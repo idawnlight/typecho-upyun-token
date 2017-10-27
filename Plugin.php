@@ -74,16 +74,16 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
     public static function Insert($buffer) {
         $settings = Helper::options()->plugin('UpyunToken');
 
+        if ($settings->UpyunTokenOpen) {
+            $buffer = self::getTokenResult($buffer, $settings->UpyunDomain, $settings->UpyunToken, $settings->UpyunEtime);
+        }
+
         if ($settings->keyword_replace) {
             $list = explode("\r\n", $settings->keyword_replace);
             foreach ($list as $tmp) {
                 list($old, $new) = explode('=', $tmp);
                 $buffer = str_replace($old, $new, $buffer);
             }
-        }
-
-        if ($settings->UpyunTokenOpen) {
-            $buffer = self::getTokenResult($buffer, $settings->UpyunDomain, $settings->UpyunToken, $settings->UpyunEtime);
         }
 
         return $buffer;
@@ -97,7 +97,7 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
      * @param string $html_source HTML源码
      * @return string 压缩后的代码
      */
-    public static function getTokenResult($html_source, $domain, $key, $etime) {
+    public static function getTokenResult($html_source, $domain, $key, $petime) {
         $patterns = "/(\"https:\/\/" . $domain . ".*?\"|'https:\/\/" . $domain . ".*?\'|\"http:\/\/" . $domain . ".*?\"|'http:\/\/" . $domain . ".*?'|\(http:\/\/" . $domain . ".*?\)|\(https:\/\/" . $domain . ".*?\))/msi";
         preg_match_all($patterns, $html_source, $out);
         $rawurl = array();
@@ -110,9 +110,11 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
             $i++;
         }
         $i = 0;
-        foreach ($out[1] as $uri) {
-            $etime = time() + $etime; // 授权 10 分钟后过期
-            $path = $uri; // 文件相对路径
+        foreach ($rawurl as $uri) {
+            $etime = time() + $petime;
+            if (explode("https://" . $domain, $uri)[0] == "") $uri = explode("https://" . $domain, $uri)[1];
+            if (explode("http://" . $domain, $uri)[0] == "") $uri = explode("http://" . $domain, $uri)[1];
+            $path = $uri;
             $sign = substr(md5($key.'&'.$etime.'&'.$path), 12, 8).$etime;
             $newurl[$i] = $rawurl[$i] . "?_upt=" . $sign;
             $i++;
@@ -120,8 +122,6 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
         $i = 0;
         $flag = array();
         foreach ($newurl as $replacement) {
-            //echo $rawurl[$i]  . $replacement ;
-            //echo $rawurl[$i] . "\n" . $replacement . "\n";
             if (!isset($flag[$rawurl[$i]])) {
                 $html_source = str_replace($rawurl[$i], $replacement, $html_source);
                 $flag[$rawurl[$i]] = true;
