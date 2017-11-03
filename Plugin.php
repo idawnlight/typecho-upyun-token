@@ -95,7 +95,7 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
      * @author 黎明余光 <i@emiria.moe>
      * @version 1.0.0
      * @param string $html_source HTML源码
-     * @return string 压缩后的代码
+     * @return string 添加后的HTML源码
      */
     public static function getTokenResult($html_source, $domain, $key, $petime) {
         $patterns = "/(\"https:\/\/" . $domain . ".*?\"|'https:\/\/" . $domain . ".*?\'|\"http:\/\/" . $domain . ".*?\"|'http:\/\/" . $domain . ".*?'|\(http:\/\/" . $domain . ".*?\)|\(https:\/\/" . $domain . ".*?\))/msi";
@@ -111,7 +111,12 @@ class UpyunToken_Plugin implements Typecho_Plugin_Interface {
         }
         $i = 0;
         foreach ($rawurl as $uri) {
-            $etime = time() + $petime;
+            if (isset($_COOKIE["upyun_token_etime"]) && $_COOKIE["upyun_token_etime"] - time() > 180) {
+                $etime = $_COOKIE["upyun_token_etime"];
+            } else {
+                $etime = time() + $petime;
+                setcookie("upyun_token_etime", $etime);
+            }
             if (explode("https://" . $domain, $uri)[0] == "") $uri = explode("https://" . $domain, $uri)[1];
             if (explode("http://" . $domain, $uri)[0] == "") $uri = explode("http://" . $domain, $uri)[1];
             $path = $uri;
